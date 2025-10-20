@@ -4,7 +4,6 @@ from fastapi.responses import FileResponse
 import os
 import json
 import numpy as np
-import soundfile as sf
 
 # ---------- Config ----------
 SNIPPETS_JSON = "snippets.json"  # your metadata file
