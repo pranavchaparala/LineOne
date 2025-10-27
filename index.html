@@ -18,6 +18,7 @@
 
 <h3>Your Recording:</h3>
 <audio id="yourAudio" controls></audio>
+<p id="yourTranscription"></p>
 
 <h3>Matched Snippet:</h3>
 <audio id="matchedAudio" controls></audio>
@@ -31,6 +32,7 @@ let audioChunks = [];
 const startButton = document.getElementById('start');
 const stopButton = document.getElementById('stop');
 const yourAudio = document.getElementById('yourAudio');
+const yourTranscription = document.getElementById('yourTranscription');
 const matchedAudio = document.getElementById('matchedAudio');
 const matchedText = document.getElementById('matchedText');
 const matchedScore = document.getElementById('matchedScore');
@@ -66,8 +68,9 @@ stopButton.onclick = () => {
             });
             const data = await response.json();
 
-            matchedText.textContent = data.transcription;
-            matchedScore.textContent = `Score: ${data.score.toFixed(3)}`;
+            yourTranscription.textContent = `You said: "${data.query_transcription}"`;
+            matchedText.textContent = `Matched: "${data.matched_transcription}"`;
+            matchedScore.textContent = `Similarity Score: ${data.score.toFixed(3)}`;
             if (data.audio_file) {
                 matchedAudio.src = `http://127.0.0.1:8000${data.audio_file}`;
             }

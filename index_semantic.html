@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Semantic Search Audio Snippets</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; max-width: 1000px; margin: 0 auto; background-color: #f5f5f5; }
+  h1 { color: #333; text-align: center; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+  .search-box { 
+    background: white; 
+    padding: 25px; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  }
+  input[type="text"] { 
+    width: 100%; 
+    padding: 15px; 
+    font-size: 16px; 
+    border: 2px solid #ddd; 
+    border-radius: 4px;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+  }
+  button { 
+    padding: 12px 30px; 
+    font-size: 16px; 
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  button:hover { background-color: #45a049; }
+  button:disabled { background-color: #ccc; cursor: not-allowed; }
+  
+  .results-container { display: none; }
+  .query-display { 
+    background: #e3f2fd; 
+    padding: 15px; 
+    border-radius: 4px; 
+    margin: 20px 0;
+    border-left: 4px solid #2196F3;
+  }
+  .query-text { 
+    color: #1976D2; 
+    font-weight: bold; 
+    font-size: 18px;
+  }
+  
+  .match-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-left: 4px solid #4CAF50;
+  }
+  .match-card.top-match {
+    border-left-color: #FF9800;
+    background: #fff9e6;
+  }
+  .match-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .match-number {
+    background: #4CAF50;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+  }
+  .match-number.top {
+    background: #FF9800;
+  }
+  .score-badge {
+    background: #2196F3;
+    color: white;
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 14px;
+  }
+  audio { 
+    display: block; 
+    margin: 15px 0; 
+    width: 100%;
+  }
+  .transcription { 
+    color: #333; 
+    line-height: 1.6;
+    margin: 10px 0;
+    font-size: 15px;
+  }
+  .loading {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+    font-size: 16px;
+  }
+</style>
+</head>
+<body>
+<h1>🔍 Semantic Search Audio Snippets</h1>
+<p class="subtitle">Find relevant snippets using AI-powered semantic similarity</p>
+
+<div class="search-box">
+  <input type="text" id="queryInput" placeholder="Enter your query (e.g., 'I want to talk about music' or 'What do you think about politics?')" />
+  <button id="searchButton">Search</button>
+</div>
+
+<div id="loading" class="loading" style="display: none;">
+  🔄 Searching for relevant snippets...
+</div>
+
+<div id="results" class="results-container">
+  <div class="query-display">
+    <div class="query-text" id="yourQuery"></div>
+  </div>
+
+  <h2>🎯 Best Match</h2>
+  <div id="topMatch"></div>
+
+  <h2>📋 Other Relevant Matches</h2>
+  <div id="otherMatches"></div>
+</div>
+
+<script>
+const searchButton = document.getElementById('searchButton');
+const queryInput = document.getElementById('queryInput');
+const resultsDiv = document.getElementById('results');
+const loadingDiv = document.getElementById('loading');
+const yourQuery = document.getElementById('yourQuery');
+const topMatchDiv = document.getElementById('topMatch');
+const otherMatchesDiv = document.getElementById('otherMatches');
+
+// Allow Enter key to search
+queryInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    searchButton.click();
+  }
+});
+
+function createMatchCard(match, index, isTop = false) {
+  const card = document.createElement('div');
+  card.className = `match-card ${isTop ? 'top-match' : ''}`;
+  
+  const header = document.createElement('div');
+  header.className = 'match-header';
+  
+  const number = document.createElement('span');
+  number.className = `match-number ${isTop ? 'top' : ''}`;
+  number.textContent = isTop ? '🏆 TOP MATCH' : `#${index}`;
+  
+  const score = document.createElement('span');
+  score.className = 'score-badge';
+  score.textContent = `Similarity: ${(match.score * 100).toFixed(1)}%`;
+  
+  header.appendChild(number);
+  header.appendChild(score);
+  
+  const audio = document.createElement('audio');
+  audio.controls = true;
+  if (match.audio_file) {
+    audio.src = `http://127.0.0.1:8000${match.audio_file}`;
+  }
+  
+  const transcription = document.createElement('div');
+  transcription.className = 'transcription';
+  transcription.textContent = `"${match.transcription}"`;
+  
+  card.appendChild(header);
+  card.appendChild(audio);
+  card.appendChild(transcription);
+  
+  return card;
+}
+
+searchButton.onclick = async () => {
+  const query = queryInput.value.trim();
+  if (!query) {
+    alert("Please enter a query!");
+    return;
+  }
+
+  searchButton.disabled = true;
+  searchButton.textContent = "Searching...";
+  loadingDiv.style.display = 'block';
+  resultsDiv.style.display = 'none';
+
+  try {
+    const response = await fetch('http://127.0.0.1:8000/search_text', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query: query })
+    });
+    
+    const data = await response.json();
+
+    // Display query
+    yourQuery.textContent = `"${query}"`;
+    
+    // Display top match
+    topMatchDiv.innerHTML = '';
+    topMatchDiv.appendChild(createMatchCard({
+      transcription: data.matched_transcription,
+      audio_file: data.audio_file,
+      score: data.score
+    }, 1, true));
+    
+    // Display other matches
+    otherMatchesDiv.innerHTML = '';
+    data.top_5_matches.slice(1).forEach((match, idx) => {
+      otherMatchesDiv.appendChild(createMatchCard(match, idx + 2));
+    });
+    
+    resultsDiv.style.display = 'block';
+  } catch (err) {
+    alert("Error! Make sure backend is running on port 8000.");
+    console.error(err);
+  } finally {
+    searchButton.disabled = false;
+    searchButton.textContent = "Search";
+    loadingDiv.style.display = 'none';
+  }
+};
+</script>
+</body>
+</html>
+

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Voice Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: #7D9271;
+    /* FONT CHANGE: Replaced system font with 'Press Start 2P' */
+    font-family: 'Press Start 2P', cursive;
+    display: flex;
+    flex-direction: column;
+    box-shadow: inset 0 0 40px rgba(0, 122, 255, 0.15);
+    /* Set a smaller default font size for the chunky arcade font */
+    font-size: 10px; 
+  }
+
+  /* ---------------------------------------------------- */
+  /* --- INPUT CONTAINER (Fixed at Bottom) --- */
+  /* ---------------------------------------------------- */
+  .input-container {
+    /* **KEY: Fixes the input field to the BOTTOM of the viewport** */
+    position: fixed; 
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    
+    padding: 15px 25px 25px 25px; /* Added extra bottom padding for the indicator/spacer */
+    /* Use the main background color to blend with the body */
+    background: #7D9271; 
+    border-top: 1px solid #35442F; /* Top border for separation */
+    
+    /* Ensure it floats above the scrolling content */
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  
+  /* REMOVED: .header-spacer is no longer needed */
+  
+  .input-field {
+    width: 100%;
+    /* BACKGROUND MATCH: Match the body color */
+    background: #7D9271; 
+    border: 1px solid #35442F;
+    border-radius: 12px;
+    padding: 15px 20px;
+    color: #232F1F; /* Darker text color to show up on the lighter background */
+    /* Adjusted font size for readability with Press Start 2P */
+    font-size: 10px; 
+    font-family: inherit;
+    outline: none;
+    transition: all 0.3s ease;
+    margin-bottom: 10px; /* Space above indicator */
+  }
+
+  .input-field::placeholder {
+    color: rgba(35, 47, 31, 0.6); /* Slightly darker placeholder text */
+  }
+
+  .input-field:focus {
+    background: #7D9271;
+    border-color: #232F1F; /* Darker focus border */
+  }
+
+  /* ---------------------------------------------------- */
+  /* --- TRANSCRIPT CONTAINER FIX: The Scrollable Area --- */
+  /* ---------------------------------------------------- */
+  .transcript-container {
+    /* **KEY: Allows the text area to scroll** */
+    overflow-y: auto; 
+    
+    /* Take up the remaining space */
+    flex: 1; 
+    
+    padding: 20px 25px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    
+    /* CRITICAL FIX: Add padding at the bottom to ensure the last line clears the fixed input bar (approx 150px) */
+    padding-top: 40px; 
+    padding-bottom: 150px; 
+  }
+
+  .transcript-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .transcript-line {
+    color: #e8e8e8;
+    /* Adjusted font size for readability with Press Start 2P */
+    font-size: 32px; 
+    line-height: 2.0; /* Increased line-height for readability */
+    margin-bottom: 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+    word-wrap: break-word;
+  }
+
+  .transcript-line.visible {
+    opacity: 1;
+  }
+
+  .transcript-line.user {
+    color: #232F1F;
+  }
+
+  .transcript-line.ai {
+    color: #3b4537c0;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .transcript-line {
+      /* Adjusted font size for smaller screens */
+      font-size: 24px; 
+    }
+  }
+
+  @media (max-width: 480px) {
+    .transcript-line {
+      /* Adjusted font size for small phones */
+      font-size: 9px; 
+    }
+    
+    .input-container {
+      padding: 10px 15px 20px 15px;
+    }
+
+    .transcript-container {
+      padding: 15px;
+      padding-top: 30px; 
+      /* Adjusted bottom padding for smaller screens */
+      padding-bottom: 120px; 
+    }
+  }
+
+  /* REMOVED: .bottom-section is now mostly obsolete, styles are moved to .input-container */
+
+  .listening-indicator {
+    color: #888;
+    /* Adjusted font size for readability */
+    font-size: 8px; 
+    text-align: center;
+    letter-spacing: 1px;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    font-weight: 500;
+  }
+
+  .listening-indicator.active {
+    opacity: 1;
+    animation: pulse-text 2s infinite;
+  }
+
+  @keyframes pulse-text {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  .loading-dots {
+    display: inline-block;
+  }
+
+  .loading-dots::after {
+    content: '';
+    animation: dots 1.5s steps(4, end) infinite;
+  }
+
+  @keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+  }
+
+  /* Style to hide all audio elements unless they are the ones playing a voice response */
+  audio {
+    position: fixed;
+    bottom: -100px;
+    left: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  /* Hide the new loading audio element */
+  #loadingAudio {
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="transcript-container" id="transcriptContainer">
+</div>
+
+<div class="input-container">
+  <input 
+    type="text" 
+    class="input-field" 
+    id="queryInput" 
+    placeholder="Type your query here and press Enter..."
+  />
+  <div class="listening-indicator" id="listeningIndicator">
+    AI LISTENING<span class="loading-dots"></span>
+  </div>
+</div>
+
+<audio id="loadingAudio" src="assets/ring.mp3"></audio>
+
+<audio id="matchedAudio"></audio>
+
+<script>
+const listeningIndicator = document.getElementById('listeningIndicator');
+const transcriptContainer = document.getElementById('transcriptContainer');
+const matchedAudio = document.getElementById('matchedAudio');
+const loadingAudio = document.getElementById('loadingAudio');
+const queryInput = document.getElementById('queryInput');
+
+let isProcessing = false;
+let typingInterval = null;
+
+// 🔊 Ensure the ring sound is loaded and ready to play 🔊
+loadingAudio.load(); 
+
+
+// ⭐ Set initial focus to the input field
+document.addEventListener('DOMContentLoaded', () => {
+    queryInput.focus();
+    // Initial state: listening indicator is active on load
+    listeningIndicator.classList.add('active');
+});
+
+// Use Enter key to submit query and start processing
+queryInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter' && !isProcessing) {
+    const query = queryInput.value.trim();
+    if (query) {
+      // Start the process with the text entered by the user
+      startProcessing(query);
+      
+      // Clear the input field
+      queryInput.value = '';
+    }
+  }
+});
+
+
+function addTranscriptLine(text, className = 'user') {
+  const line = document.createElement('div');
+  line.className = `transcript-line ${className}`;
+  line.textContent = text;
+  transcriptContainer.appendChild(line);
+  
+  // Trigger animation
+  setTimeout(() => {
+    line.classList.add('visible');
+  }, 10);
+  
+  // Auto-scroll to bottom
+  setTimeout(() => {
+    transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+  }, 100);
+}
+
+function typeText(text, className, callback) {
+  const words = text.split(' ');
+  let currentLine = '';
+  let wordIndex = 0;
+  
+  // Create a single line for this text
+  const line = document.createElement('div');
+  line.className = `transcript-line ${className}`;
+  line.textContent = '';
+  transcriptContainer.appendChild(line);
+  
+  const typeInterval = setInterval(() => {
+    if (wordIndex < words.length) {
+      currentLine += (wordIndex > 0 ? ' ' : '') + words[wordIndex];
+      line.textContent = currentLine;
+      wordIndex++;
+      
+      // Scroll to bottom as text types
+      transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+    } else {
+      clearInterval(typeInterval);
+      // Make it visible after typing is complete
+      setTimeout(() => {
+        line.classList.add('visible');
+        transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+      }, 10);
+      if (callback) callback();
+    }
+  }, 80); // Adjust typing speed
+  
+  typingInterval = typeInterval;
+}
+
+function startProcessing(query) {
+  if (isProcessing) return;
+  
+  isProcessing = true;
+  queryInput.disabled = true;
+  
+  // Update indicator text immediately before user text starts typing
+  listeningIndicator.textContent = 'USER INPUT<span class="loading-dots"></span>';
+  
+  // Simulate typing the user's query
+  typeText(query, 'user', () => {
+    
+    // Once user query is typed, AI starts thinking
+    listeningIndicator.textContent = 'AI THINKING<span class="loading-dots"></span>';
+    
+    // 🔊 1. CRITICAL AUDIO FIX: Play the loading audio (ring.mp3) here
+    loadingAudio.loop = true; 
+    loadingAudio.play().catch(e => {
+        // Log error but continue with the application flow
+        console.error("Error playing loading audio (Check file path 'assets/ring.mp3'):", e);
+    });
+
+    // NOTE: This fetch call is for a local server and will likely fail in a standard browser environment.
+    fetch('http://127.0.0.1:8000/search_text', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query: query })
+    })
+    .then(response => response.json())
+    .then(data => {
+      
+      // 🛑 Stop and reset the loading audio upon receiving a response 🛑
+      loadingAudio.pause();
+      loadingAudio.currentTime = 0;
+      loadingAudio.loop = false;
+      
+      if (data.matched_transcription) {
+        listeningIndicator.textContent = 'AI RESPONDING<span class="loading-dots"></span>';
+        
+        typeText(data.matched_transcription, 'ai', () => {
+          
+          if (data.audio_file) {
+            const audioUrl = `http://127.0.0.1:8000${data.audio_file}`;
+            matchedAudio.src = audioUrl;
+            matchedAudio.load(); 
+            
+            matchedAudio.play()
+              .then(() => {
+                console.log('Audio playing successfully');
+              })
+              .catch(e => {
+                console.error('Error playing AI response audio:', e);
+              });
+          }
+          
+          // Reset UI
+          setTimeout(() => {
+            stopProcessing();
+          }, 1000);
+        });
+      } else {
+        addTranscriptLine('Sorry, I couldn\'t process that request.', 'ai');
+        stopProcessing();
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      addTranscriptLine('Sorry, I encountered a connection error. Please check the server.', 'ai');
+      
+      // 🛑 Stop and reset the loading audio on error 🛑
+      loadingAudio.pause();
+      loadingAudio.currentTime = 0;
+      loadingAudio.loop = false;
+      
+      stopProcessing();
+    });
+  });
+}
+
+function stopProcessing() {
+  if (typingInterval) {
+    clearInterval(typingInterval);
+    typingInterval = null;
+  }
+  
+  isProcessing = false;
+  listeningIndicator.classList.add('active'); // Keep indicator active when listening
+  listeningIndicator.textContent = 'AI LISTENING<span class="loading-dots"></span>';
+  queryInput.disabled = false;
+  queryInput.focus();
+}
+</script>
+
+</body>
+</html>

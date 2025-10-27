@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text Search Audio Snippets</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+  h1 { color: #333; }
+  .search-box { margin: 20px 0; }
+  input[type="text"] { 
+    width: 100%; 
+    padding: 12px; 
+    font-size: 16px; 
+    border: 2px solid #ddd; 
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  button { 
+    margin: 10px 5px 10px 0; 
+    padding: 12px 24px; 
+    font-size: 16px; 
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:hover { background-color: #45a049; }
+  button:disabled { background-color: #ccc; cursor: not-allowed; }
+  audio { 
+    display: block; 
+    margin: 15px 0; 
+    width: 100%;
+  }
+  .result-box { 
+    background-color: #f5f5f5; 
+    padding: 15px; 
+    border-radius: 4px; 
+    margin: 15px 0;
+  }
+  .query-text { 
+    color: #2196F3; 
+    font-weight: bold; 
+    margin-bottom: 10px;
+  }
+  .matched-text { 
+    color: #333; 
+    line-height: 1.6;
+    margin: 10px 0;
+  }
+  .score { 
+    color: #666; 
+    font-size: 14px; 
+    margin-top: 10px;
+  }
+  .matched-words {
+    color: #FF9800;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+<h1>🔍 Text Search Audio Snippets</h1>
+<p>Enter a text query to find the most relevant audio snippet based on word matching (ignoring common words).</p>
+
+<div class="search-box">
+  <input type="text" id="queryInput" placeholder="Enter your query here (e.g., 'podcast about music and entertainment')" />
+  <button id="searchButton">Search</button>
+</div>
+
+<div id="results" style="display: none;">
+  <h3>Your Query:</h3>
+  <div class="result-box">
+    <div class="query-text" id="yourQuery"></div>
+  </div>
+
+  <h3>Matched Snippet:</h3>
+  <div class="result-box">
+    <audio id="matchedAudio" controls></audio>
+    <div class="matched-text" id="matchedText"></div>
+    <div class="score" id="matchedScore"></div>
+    <div class="matched-words" id="matchedWords"></div>
+  </div>
+</div>
+
+<script>
+const searchButton = document.getElementById('searchButton');
+const queryInput = document.getElementById('queryInput');
+const resultsDiv = document.getElementById('results');
+const yourQuery = document.getElementById('yourQuery');
+const matchedAudio = document.getElementById('matchedAudio');
+const matchedText = document.getElementById('matchedText');
+const matchedScore = document.getElementById('matchedScore');
+const matchedWords = document.getElementById('matchedWords');
+
+// Allow Enter key to search
+queryInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    searchButton.click();
+  }
+});
+
+searchButton.onclick = async () => {
+  const query = queryInput.value.trim();
+  if (!query) {
+    alert("Please enter a query!");
+    return;
+  }
+
+  searchButton.disabled = true;
+  searchButton.textContent = "Searching...";
+
+  try {
+    // Send text query directly
+    const response = await fetch('http://127.0.0.1:8000/search_text', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query: query })
+    });
+    
+    const data = await response.json();
+
+    // Override with actual query
+    yourQuery.textContent = `"${query}"`;
+    matchedText.textContent = `"${data.matched_transcription}"`;
+    matchedScore.textContent = `Matched ${data.score} words`;
+    matchedWords.textContent = `Matching words: ${data.matched_words.join(', ')}`;
+    
+    if (data.audio_file) {
+      matchedAudio.src = `http://127.0.0.1:8000${data.audio_file}`;
+    }
+    
+    resultsDiv.style.display = 'block';
+  } catch (err) {
+    alert("Error! Make sure backend is running.");
+    console.error(err);
+  } finally {
+    searchButton.disabled = false;
+    searchButton.textContent = "Search";
+  }
+};
+</script>
+</body>
+</html>
+
