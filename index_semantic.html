@@ -3,235 +3,515 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Semantic Search Audio Snippets</title>
+<title>AI Voice Assistant</title>
 <style>
-  body { font-family: Arial, sans-serif; padding: 20px; max-width: 1000px; margin: 0 auto; background-color: #f5f5f5; }
-  h1 { color: #333; text-align: center; }
-  .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
-  .search-box { 
-    background: white; 
-    padding: 25px; 
-    border-radius: 8px; 
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-  }
-  input[type="text"] { 
-    width: 100%; 
-    padding: 15px; 
-    font-size: 16px; 
-    border: 2px solid #ddd; 
-    border-radius: 4px;
+  * {
+    margin: 0;
+    padding: 0;
     box-sizing: border-box;
-    margin-bottom: 10px;
   }
-  button { 
-    padding: 12px 30px; 
-    font-size: 16px; 
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-  }
-  button:hover { background-color: #45a049; }
-  button:disabled { background-color: #ccc; cursor: not-allowed; }
-  
-  .results-container { display: none; }
-  .query-display { 
-    background: #e3f2fd; 
-    padding: 15px; 
-    border-radius: 4px; 
-    margin: 20px 0;
-    border-left: 4px solid #2196F3;
-  }
-  .query-text { 
-    color: #1976D2; 
-    font-weight: bold; 
-    font-size: 18px;
-  }
-  
-  .match-card {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    border-left: 4px solid #4CAF50;
-  }
-  .match-card.top-match {
-    border-left-color: #FF9800;
-    background: #fff9e6;
-  }
-  .match-header {
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: linear-gradient(180deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: inset 0 0 40px rgba(0, 122, 255, 0.15);
   }
-  .match-number {
-    background: #4CAF50;
-    color: white;
-    padding: 5px 15px;
-    border-radius: 20px;
-    font-weight: bold;
-  }
-  .match-number.top {
-    background: #FF9800;
-  }
-  .score-badge {
-    background: #2196F3;
-    color: white;
-    padding: 5px 12px;
-    border-radius: 15px;
-    font-size: 14px;
-  }
-  audio { 
-    display: block; 
-    margin: 15px 0; 
+
+  /* Fixed Input Bar at Bottom */
+  .input-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
     width: 100%;
+    padding: 20px 25px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: #101018; /* Darker background for fixed bar */
+    z-index: 10;
   }
-  .transcription { 
-    color: #333; 
-    line-height: 1.6;
-    margin: 10px 0;
-    font-size: 15px;
-  }
-  .loading {
-    text-align: center;
-    padding: 20px;
-    color: #666;
+
+  .input-field {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 15px 20px;
+    color: #fff;
     font-size: 16px;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.3s ease;
+  }
+
+  .input-field::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+  }
+
+  .input-field:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(0, 122, 255, 0.5);
+    box-shadow: 0 0 20px rgba(0, 122, 255, 0.2);
+  }
+
+  /* Scrollable Transcript Area */
+  .transcript-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 25px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    /* Added padding-bottom to clear the fixed input bar and mic section */
+    padding-bottom: 120px; 
+  }
+
+  .transcript-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .transcript-line {
+    color: #e8e8e8;
+    font-size: 18px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+    word-wrap: break-word; 
+  }
+
+  .transcript-line.visible {
+    opacity: 1;
+  }
+
+  .transcript-line.user {
+    color: #ffffff;
+    text-align: right;
+  }
+
+  .transcript-line.ai {
+    color: #b8c5d6;
+    text-align: left;
+  }
+
+  /* Microphone and Indicator Section */
+  .bottom-section {
+    position: fixed;
+    bottom: 90px; /* Position above the fixed input bar */
+    left: 0;
+    width: 100%;
+    padding: 0 25px 20px 25px;
+    pointer-events: none; 
+    background: transparent;
+    z-index: 5;
+  }
+
+  .listening-indicator {
+    color: #888;
+    font-size: 13px;
+    text-align: center;
+    letter-spacing: 1px;
+    margin-bottom: 15px;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    font-weight: 500;
+  }
+
+  .listening-indicator.active {
+    opacity: 1;
+    animation: pulse-text 2s infinite;
+  }
+
+  @keyframes pulse-text {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  .microphone-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    height: 80px;
+  }
+
+  .microphone-button {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: #fff;
+    border: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+    z-index: 12;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.3);
+    pointer-events: auto; /* Allow microphone button to be clicked */
+  }
+
+  .microphone-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 25px rgba(255, 255, 255, 0.4);
+  }
+
+  .microphone-button.listening {
+    background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+    box-shadow: 0 0 30px rgba(0, 122, 255, 0.6);
+    animation: mic-pulse 1.5s infinite;
+  }
+
+  @keyframes mic-pulse {
+    0%, 100% { 
+      box-shadow: 0 0 30px rgba(0, 122, 255, 0.6);
+    }
+    50% { 
+      box-shadow: 0 0 50px rgba(0, 122, 255, 0.9);
+    }
+  }
+
+  .microphone-icon {
+    width: 32px;
+    height: 32px;
+    fill: #333;
+    transition: fill 0.3s ease;
+  }
+
+  .microphone-button.listening .microphone-icon {
+    fill: #fff;
+  }
+
+  .waveform {
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: rgba(0, 122, 255, 0.2);
+    opacity: 0;
+    z-index: 1;
+  }
+
+  .waveform.active {
+    animation: waveform-pulse 1.5s infinite;
+  }
+
+  @keyframes waveform-pulse {
+    0% {
+      transform: scale(0.8);
+      opacity: 0.4;
+    }
+    50% {
+      transform: scale(1.2);
+      opacity: 0.2;
+    }
+    100% {
+      transform: scale(1.6);
+      opacity: 0;
+    }
+  }
+
+  .loading-dots {
+    display: inline-block;
+  }
+
+  .loading-dots::after {
+    content: '';
+    animation: dots 1.5s steps(4, end) infinite;
+  }
+
+  @keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+  }
+
+  audio {
+    display: none;
   }
 </style>
 </head>
 <body>
-<h1>🔍 Semantic Search Audio Snippets</h1>
-<p class="subtitle">Find relevant snippets using AI-powered semantic similarity</p>
 
-<div class="search-box">
-  <input type="text" id="queryInput" placeholder="Enter your query (e.g., 'I want to talk about music' or 'What do you think about politics?')" />
-  <button id="searchButton">Search</button>
+<div class="transcript-container" id="transcriptContainer">
 </div>
 
-<div id="loading" class="loading" style="display: none;">
-  🔄 Searching for relevant snippets...
-</div>
-
-<div id="results" class="results-container">
-  <div class="query-display">
-    <div class="query-text" id="yourQuery"></div>
+<div class="bottom-section">
+  <div class="listening-indicator" id="listeningIndicator">
+    AI LISTENING<span class="loading-dots"></span>
   </div>
 
-  <h2>🎯 Best Match</h2>
-  <div id="topMatch"></div>
-
-  <h2>📋 Other Relevant Matches</h2>
-  <div id="otherMatches"></div>
+  <div class="microphone-container">
+    <div class="waveform" id="waveform"></div>
+    <button class="microphone-button" id="microphoneButton">
+      <svg class="microphone-icon" viewBox="0 0 24 24">
+        <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+      </svg>
+    </button>
+  </div>
 </div>
 
-<script>
-const searchButton = document.getElementById('searchButton');
-const queryInput = document.getElementById('queryInput');
-const resultsDiv = document.getElementById('results');
-const loadingDiv = document.getElementById('loading');
-const yourQuery = document.getElementById('yourQuery');
-const topMatchDiv = document.getElementById('topMatch');
-const otherMatchesDiv = document.getElementById('otherMatches');
+<div class="input-container">
+  <input 
+    type="text" 
+    class="input-field" 
+    id="queryInput" 
+    placeholder="Type your query here or click the mic..."
+  />
+</div>
 
-// Allow Enter key to search
+<audio id="loadingAudio" src="assets/ring.mp3"></audio>
+<audio id="matchedAudio"></audio>
+
+<script>
+const microphoneButton = document.getElementById('microphoneButton');
+const listeningIndicator = document.getElementById('listeningIndicator');
+const waveform = document.getElementById('waveform');
+const transcriptContainer = document.getElementById('transcriptContainer');
+const matchedAudio = document.getElementById('matchedAudio');
+const loadingAudio = document.getElementById('loadingAudio');
+const queryInput = document.getElementById('queryInput');
+
+let isProcessing = false;
+let typingInterval = null;
+let currentQuery = "";
+
+// Simulated query for the mic button (replace with actual recording/transcription later)
+const sampleQuery = "Hey, I've been working on this presentation for a new project, and I'm struggling with how to summarize the main points.";
+
+// 🔊 Ensure audio is loaded 🔊
+loadingAudio.load(); 
+
+
+// -----------------------------------------------------
+// --- AUTOPLAY POLICY WORKAROUND (Using working logic) ---
+// -----------------------------------------------------
+function enableAudioContext() {
+    // Attempts to play/pause silent audio on first user interaction to unlock context
+    if (loadingAudio.paused) {
+        loadingAudio.muted = true; 
+        
+        loadingAudio.play()
+            .then(() => {
+                loadingAudio.pause();
+                loadingAudio.muted = false; 
+                loadingAudio.currentTime = 0;
+                console.log('Audio context successfully initialized/unlocked.');
+            })
+            .catch(e => {
+                console.warn('Initial audio unlock failed (User interaction needed):', e.message);
+            });
+    }
+}
+// -----------------------------------------------------
+
+
+// ⭐ Initial Setup and Interaction Event Listeners ⭐
+document.addEventListener('DOMContentLoaded', () => {
+    queryInput.focus();
+    listeningIndicator.classList.add('active');
+    
+    // Attach the audio unlock function to the first user interaction
+    queryInput.addEventListener('keydown', enableAudioContext, { once: true });
+    microphoneButton.addEventListener('click', enableAudioContext, { once: true });
+});
+
+// Use Enter key to submit query
 queryInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    searchButton.click();
+  if (e.key === 'Enter' && !isProcessing) {
+    const query = queryInput.value.trim();
+    if (query) {
+      startProcessing(query);
+      queryInput.value = '';
+    }
   }
 });
 
-function createMatchCard(match, index, isTop = false) {
-  const card = document.createElement('div');
-  card.className = `match-card ${isTop ? 'top-match' : ''}`;
+
+function addTranscriptLine(text, className = 'user') {
+  const line = document.createElement('div');
+  line.className = `transcript-line ${className}`;
+  line.textContent = text;
+  transcriptContainer.appendChild(line);
   
-  const header = document.createElement('div');
-  header.className = 'match-header';
+  setTimeout(() => {
+    line.classList.add('visible');
+  }, 10);
   
-  const number = document.createElement('span');
-  number.className = `match-number ${isTop ? 'top' : ''}`;
-  number.textContent = isTop ? '🏆 TOP MATCH' : `#${index}`;
-  
-  const score = document.createElement('span');
-  score.className = 'score-badge';
-  score.textContent = `Similarity: ${(match.score * 100).toFixed(1)}%`;
-  
-  header.appendChild(number);
-  header.appendChild(score);
-  
-  const audio = document.createElement('audio');
-  audio.controls = true;
-  if (match.audio_file) {
-    audio.src = `http://127.0.0.1:8000${match.audio_file}`;
-  }
-  
-  const transcription = document.createElement('div');
-  transcription.className = 'transcription';
-  transcription.textContent = `"${match.transcription}"`;
-  
-  card.appendChild(header);
-  card.appendChild(audio);
-  card.appendChild(transcription);
-  
-  return card;
+  setTimeout(() => {
+    transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+  }, 100);
 }
 
-searchButton.onclick = async () => {
-  const query = queryInput.value.trim();
-  if (!query) {
-    alert("Please enter a query!");
-    return;
-  }
+function typeText(text, className, callback) {
+  const words = text.split(' ');
+  let currentLine = '';
+  let wordIndex = 0;
+  
+  const line = document.createElement('div');
+  line.className = `transcript-line ${className}`;
+  line.textContent = '';
+  transcriptContainer.appendChild(line);
+  
+  const typeInterval = setInterval(() => {
+    if (wordIndex < words.length) {
+      currentLine += (wordIndex > 0 ? ' ' : '') + words[wordIndex];
+      line.textContent = currentLine;
+      wordIndex++;
+      
+      transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+    } else {
+      clearInterval(typeInterval);
+      setTimeout(() => {
+        line.classList.add('visible');
+        transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+      }, 10);
+      if (callback) callback();
+    }
+  }, 80); 
+  
+  typingInterval = typeInterval;
+}
 
-  searchButton.disabled = true;
-  searchButton.textContent = "Searching...";
-  loadingDiv.style.display = 'block';
-  resultsDiv.style.display = 'none';
 
-  try {
-    const response = await fetch('http://127.0.0.1:8000/search_text', {
+// --- Voice Input Logic ---
+function startListening() {
+  if (isProcessing) return;
+  
+  isProcessing = true;
+  microphoneButton.classList.add('listening');
+  waveform.classList.add('active');
+  listeningIndicator.textContent = 'LISTENING...';
+  
+  // Simulate 1 second of "listening"
+  setTimeout(() => {
+    stopListeningVisuals();
+    listeningIndicator.textContent = 'AI THINKING<span class="loading-dots"></span>';
+    
+    // Simulate user text appearing after speech-to-text
+    typeText(sampleQuery, 'user', () => {
+        // Proceed to network request with the transcribed query
+        startProcessing(sampleQuery);
+    });
+  }, 1000); 
+}
+
+function stopListeningVisuals() {
+    microphoneButton.classList.remove('listening');
+    waveform.classList.remove('active');
+}
+// -------------------------
+
+
+// --- Core Processing Logic (Used by both text input and voice input) ---
+function startProcessing(query) {
+  if (isProcessing) return;
+  
+  isProcessing = true;
+  queryInput.disabled = true;
+  currentQuery = query;
+  
+  // Update indicator text immediately before user text starts typing
+  listeningIndicator.textContent = 'USER INPUT<span class="loading-dots"></span>';
+  
+  // Simulate typing the user's query (for text input) or confirm transcription (for voice input)
+  typeText(query, 'user', () => {
+    
+    // Once user query is typed, AI starts thinking
+    listeningIndicator.textContent = 'AI THINKING<span class="loading-dots"></span>';
+    
+    // 🔊 Play the loading audio (ring.mp3) 
+    loadingAudio.loop = true; 
+    loadingAudio.play().catch(e => {
+        console.error("Error playing loading audio:", e);
+    });
+
+    fetch('http://127.0.0.1:8000/search_text', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ query: query })
+    })
+    .then(response => response.json())
+    .then(data => {
+      
+      // 🛑 Stop and reset the loading audio 🛑
+      loadingAudio.pause();
+      loadingAudio.currentTime = 0;
+      loadingAudio.loop = false;
+      
+      if (data.matched_transcription) {
+        listeningIndicator.textContent = 'AI RESPONDING<span class="loading-dots"></span>';
+        
+        typeText(data.matched_transcription, 'ai', () => {
+          
+          if (data.audio_file) {
+            const audioUrl = `http://127.0.0.1:8000${data.audio_file}`;
+            matchedAudio.src = audioUrl;
+            matchedAudio.load(); 
+            
+            // ⭐ Working Audio Playback Logic from the "Press Start 2P" file ⭐
+            matchedAudio.play()
+              .then(() => {
+                console.log('Audio playing successfully');
+              })
+              .catch(e => {
+                // This will catch the Autoplay Policy error if the unlock failed
+                console.error('Error playing AI response audio (Policy block?):', e);
+              });
+          }
+          
+          // Reset UI
+          setTimeout(() => {
+            stopProcessing();
+          }, 1000);
+        });
+      } else {
+        addTranscriptLine('Sorry, I couldn\'t process that request.', 'ai');
+        stopProcessing();
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      addTranscriptLine('Sorry, I encountered a connection error. Please check the server.', 'ai');
+      
+      // 🛑 Stop and reset the loading audio on error 🛑
+      loadingAudio.pause();
+      loadingAudio.currentTime = 0;
+      loadingAudio.loop = false;
+      
+      stopProcessing();
     });
-    
-    const data = await response.json();
+  });
+}
 
-    // Display query
-    yourQuery.textContent = `"${query}"`;
-    
-    // Display top match
-    topMatchDiv.innerHTML = '';
-    topMatchDiv.appendChild(createMatchCard({
-      transcription: data.matched_transcription,
-      audio_file: data.audio_file,
-      score: data.score
-    }, 1, true));
-    
-    // Display other matches
-    otherMatchesDiv.innerHTML = '';
-    data.top_5_matches.slice(1).forEach((match, idx) => {
-      otherMatchesDiv.appendChild(createMatchCard(match, idx + 2));
-    });
-    
-    resultsDiv.style.display = 'block';
-  } catch (err) {
-    alert("Error! Make sure backend is running on port 8000.");
-    console.error(err);
-  } finally {
-    searchButton.disabled = false;
-    searchButton.textContent = "Search";
-    loadingDiv.style.display = 'none';
+function stopProcessing() {
+  if (typingInterval) {
+    clearInterval(typingInterval);
+    typingInterval = null;
   }
-};
+  
+  isProcessing = false;
+  currentQuery = "";
+  stopListeningVisuals(); 
+  listeningIndicator.classList.add('active');
+  listeningIndicator.textContent = 'AI LISTENING<span class="loading-dots"></span>';
+  queryInput.disabled = false;
+  queryInput.focus();
+}
+
+// --- Mic Button Handler ---
+microphoneButton.addEventListener('click', () => {
+  if (!isProcessing) {
+    startListening(); 
+  }
+});
 </script>
+
 </body>
 </html>
-

@@ -24,8 +24,16 @@
   }
 
   .input-container {
+    /* Changed to fixed bottom position to be more chat-like */
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
     padding: 20px 25px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: none; /* Removed redundant bottom border */
+    background: #101018; /* Darker background for fixed bar */
+    z-index: 10;
   }
 
   .input-field {
@@ -57,6 +65,8 @@
     padding: 20px 25px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    /* Added padding-bottom to clear the fixed input bar */
+    padding-bottom: 120px; 
   }
 
   .transcript-container::-webkit-scrollbar {
@@ -70,6 +80,7 @@
     margin-bottom: 16px;
     opacity: 0;
     transition: opacity 0.3s ease-out;
+    word-wrap: break-word; /* Ensure long lines wrap */
   }
 
   .transcript-line.visible {
@@ -78,17 +89,27 @@
 
   .transcript-line.user {
     color: #ffffff;
+    text-align: right; /* User text aligns right for chat feel */
   }
 
   .transcript-line.ai {
     color: #b8c5d6;
+    text-align: left;
   }
 
   .bottom-section {
-    padding: 20px 25px 30px 25px;
-    position: relative;
+    /* This section now contains the microphone and indicator */
+    position: fixed;
+    bottom: 90px; /* Position above the fixed input bar */
+    left: 0;
+    width: 100%;
+    padding: 0 25px 20px 25px;
+    pointer-events: none; /* Allow clicks to pass through to the transcript */
+    background: transparent;
+    z-index: 5;
   }
-
+  
+  /* Adjusted indicator position and style for the mic setup */
   .listening-indicator {
     color: #888;
     font-size: 13px;
@@ -103,11 +124,6 @@
   .listening-indicator.active {
     opacity: 1;
     animation: pulse-text 2s infinite;
-  }
-
-  @keyframes pulse-text {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 1; }
   }
 
   .microphone-container {
@@ -129,14 +145,10 @@
     align-items: center;
     cursor: pointer;
     position: relative;
-    z-index: 2;
+    z-index: 12; /* Bring button above input container (optional) */
     transition: all 0.3s ease;
     box-shadow: 0 4px 20px rgba(255, 255, 255, 0.3);
-  }
-
-  .microphone-button:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 25px rgba(255, 255, 255, 0.4);
+    pointer-events: auto; /* Allow microphone button to be clicked */
   }
 
   .microphone-button.listening {
@@ -144,56 +156,7 @@
     box-shadow: 0 0 30px rgba(0, 122, 255, 0.6);
     animation: mic-pulse 1.5s infinite;
   }
-
-  @keyframes mic-pulse {
-    0%, 100% { 
-      box-shadow: 0 0 30px rgba(0, 122, 255, 0.6);
-    }
-    50% { 
-      box-shadow: 0 0 50px rgba(0, 122, 255, 0.9);
-    }
-  }
-
-  .microphone-icon {
-    width: 32px;
-    height: 32px;
-    fill: #333;
-    transition: fill 0.3s ease;
-  }
-
-  .microphone-button.listening .microphone-icon {
-    fill: #fff;
-  }
-
-  .waveform {
-    position: absolute;
-    width: 90px;
-    height: 90px;
-    border-radius: 50%;
-    background: rgba(0, 122, 255, 0.2);
-    opacity: 0;
-    z-index: 1;
-  }
-
-  .waveform.active {
-    animation: waveform-pulse 1.5s infinite;
-  }
-
-  @keyframes waveform-pulse {
-    0% {
-      transform: scale(0.8);
-      opacity: 0.4;
-    }
-    50% {
-      transform: scale(1.2);
-      opacity: 0.2;
-    }
-    100% {
-      transform: scale(1.6);
-      opacity: 0;
-    }
-  }
-
+  /* Keyframes and other styles are unchanged */
 
   .loading-dots {
     display: inline-block;
@@ -217,6 +180,9 @@
 </head>
 <body>
 
+<div class="transcript-container" id="transcriptContainer">
+  </div>
+
 <div class="input-container">
   <input 
     type="text" 
@@ -224,10 +190,6 @@
     id="queryInput" 
     placeholder="Type your query here or click the mic..."
   />
-</div>
-
-<div class="transcript-container" id="transcriptContainer">
-  <!-- Transcript lines will be added here -->
 </div>
 
 <div class="bottom-section">
@@ -263,11 +225,50 @@ let typingInterval = null;
 // Simulated query from the image
 const sampleQuery = "Hey, I've been working on this presentation for a new project, and I'm struggling with how to summarize the main points. It's a bit all over the place right now. The topic is about sustainable design, and I need it to sound clear and professional, but still approachable...";
 
+
+// -----------------------------------------------------
+// --- AUTOPLAY POLICY WORKAROUND ---
+// -----------------------------------------------------
+function enableAudioContext() {
+    // This function attempts to unlock the browser's audio context
+    // upon the first user interaction (typing, clicking, etc.)
+    if (matchedAudio.paused) {
+        matchedAudio.muted = true; // Play silently
+        
+        matchedAudio.play()
+            .then(() => {
+                matchedAudio.pause();
+                matchedAudio.muted = false; // Reset mute
+                matchedAudio.currentTime = 0;
+                console.log('Audio context successfully initialized/unlocked.');
+            })
+            .catch(e => {
+                console.warn('Initial audio unlock failed (User interaction needed):', e.message);
+            });
+    }
+}
+// -----------------------------------------------------
+
+// ⭐ Initial Setup and Autoplay Unlock ⭐
+document.addEventListener('DOMContentLoaded', () => {
+    queryInput.focus();
+    listeningIndicator.classList.add('active');
+    
+    // Attach the audio unlock function to the first user interaction
+    // Typing:
+    queryInput.addEventListener('keydown', enableAudioContext, { once: true });
+    // Clicking the mic:
+    microphoneButton.addEventListener('click', enableAudioContext, { once: true });
+});
+
 // Allow Enter key to submit query
 queryInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter' && !isProcessing) {
     const query = queryInput.value.trim();
     if (query) {
+      // 1. Add user query immediately (without typing simulation)
+      addTranscriptLine(query, 'user'); 
+      // 2. Process query
       processQuery(query);
       queryInput.value = '';
     }
@@ -308,6 +309,8 @@ function typeText(text, className, callback) {
       currentLine += (wordIndex > 0 ? ' ' : '') + words[wordIndex];
       line.textContent = currentLine;
       wordIndex++;
+      // Auto-scroll as text is typed
+      transcriptContainer.scrollTop = transcriptContainer.scrollHeight; 
     } else {
       clearInterval(typeInterval);
       // Make it visible after typing is complete
@@ -321,100 +324,129 @@ function typeText(text, className, callback) {
   typingInterval = typeInterval;
 }
 
+// Function to handle the microphone click (simulates speech-to-text)
 function startListening() {
   if (isProcessing) return;
   
   isListening = true;
   isProcessing = true;
   microphoneButton.classList.add('listening');
+  listeningIndicator.textContent = 'LISTENING...';
   listeningIndicator.classList.add('active');
   waveform.classList.add('active');
   
-  // Clear previous content
-  transcriptContainer.innerHTML = '';
-  
-  // Simulate typing the query
-  typeText(sampleQuery, 'user', () => {
-    currentQuery = sampleQuery;
-    
-    // Small delay before processing
-    setTimeout(() => {
-      processQuery(sampleQuery);
-    }, 500);
-  });
+  // Simulate 1 second of "listening"
+  setTimeout(() => {
+    stopListeningVisuals();
+    listeningIndicator.textContent = 'PROCESSING...';
+    // Simulate user text appearing after speech-to-text
+    typeText(sampleQuery, 'user', () => {
+        currentQuery = sampleQuery;
+        // Proceed to network request
+        processQuery(sampleQuery);
+    });
+  }, 1000); 
 }
 
+// Helper to turn off visual indicators after speech input is captured
+function stopListeningVisuals() {
+    isListening = false;
+    microphoneButton.classList.remove('listening');
+    waveform.classList.remove('active');
+}
+
+// Function to handle the network request and AI response
 async function processQuery(query) {
-  if (isProcessing && !query) return;
+  if (isProcessing && currentQuery === query) return;
   
   isProcessing = true;
   currentQuery = query;
   queryInput.disabled = true;
   
-  // Show user query immediately
-  typeText(query, 'user', () => {
-    // After user query is typed, start processing
-    listeningIndicator.textContent = 'AI THINKING<span class="loading-dots"></span>';
+  // Set processing indicator
+  listeningIndicator.textContent = 'AI THINKING<span class="loading-dots"></span>';
+  
+  fetch('http://127.0.0.1:8000/search_text', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query: query })
+  })
+  .then(response => response.json())
+  .then(data => {
     
-    fetch('http://127.0.0.1:8000/search_text', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query: query })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.matched_transcription) {
-        // Type out the AI response
-        listeningIndicator.textContent = 'AI RESPONDING<span class="loading-dots"></span>';
+    if (data.matched_transcription) {
+      // Type out the AI response
+      listeningIndicator.textContent = 'AI RESPONDING<span class="loading-dots"></span>';
+      
+      typeText(data.matched_transcription, 'ai', () => {
         
-        typeText(data.matched_transcription, 'ai', () => {
-          // Play audio when response is complete
-          if (data.audio_file) {
-            matchedAudio.src = `http://127.0.0.1:8000${data.audio_file}`;
-            matchedAudio.play().catch(e => {
-              console.error('Error playing audio:', e);
-            });
-          }
-          
-          // Reset UI
-          setTimeout(() => {
-            stopListening();
-          }, 1000);
-        });
-      }
-    })
-    .catch(error => {
-      console.error('Error:', error);
-      addTranscriptLine('Sorry, I encountered an error. Please try again.', 'ai');
-      stopListening();
-    });
+        if (data.audio_file) {
+            const audioUrl = `http://127.0.0.1:8000${data.audio_file}`;
+            matchedAudio.src = audioUrl;
+            
+            // Define the playback handler once
+            const playbackHandler = () => {
+                matchedAudio.play()
+                  .then(() => {
+                    console.log('Audio playing successfully');
+                  })
+                  .catch(e => {
+                    // This is the Autoplay Policy catch
+                    console.error('Playback Failed (Browser Policy):', e.message);
+                  })
+                  .finally(() => {
+                    // Clean up the listener after the first attempt
+                    matchedAudio.removeEventListener('canplaythrough', playbackHandler); 
+                  });
+            };
+            
+            // 🔊 ATTACH LISTENER: Wait for the file to be ready to play
+            matchedAudio.addEventListener('canplaythrough', playbackHandler);
+            
+            matchedAudio.load(); // Start loading the audio
+        }
+        
+        // Reset UI
+        setTimeout(() => {
+          stopProcessing();
+        }, 1000);
+      });
+    } else {
+        addTranscriptLine('Sorry, I couldn\'t process that request.', 'ai');
+        stopProcessing();
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    addTranscriptLine('Sorry, I encountered a connection error. Please check the server.', 'ai');
+    stopProcessing();
   });
 }
 
-function stopListening() {
+function stopProcessing() {
   if (typingInterval) {
     clearInterval(typingInterval);
     typingInterval = null;
   }
   
-  isListening = false;
   isProcessing = false;
-  microphoneButton.classList.remove('listening');
-  listeningIndicator.classList.remove('active');
-  waveform.classList.remove('active');
+  currentQuery = "";
+  stopListeningVisuals(); // Ensure visuals are off
+  listeningIndicator.classList.add('active'); // Keep indicator active when listening
   listeningIndicator.textContent = 'AI LISTENING<span class="loading-dots"></span>';
   queryInput.disabled = false;
+  queryInput.focus();
 }
 
 microphoneButton.addEventListener('click', () => {
-  if (!isListening && !isProcessing) {
-    startListening();
+  if (!isProcessing) {
+    // If the process is initiated by mic, we call startListening (simulating the whole process)
+    startListening(); 
   }
 });
 </script>
 
 </body>
 </html>
-
